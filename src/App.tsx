@@ -73,12 +73,6 @@ function AppContent() {
                   <span className="text-sm sm:text-base font-black tracking-tight text-slate-900 whitespace-nowrap">
                     Store Alerts
                   </span>
-                  <span className="text-xs sm:text-sm font-light text-slate-500 whitespace-nowrap">
-                    
-                  </span>
-                </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#00A86B] hidden sm:block">
-                  Store Alerts
                 </div>
               </div>
             </button>
