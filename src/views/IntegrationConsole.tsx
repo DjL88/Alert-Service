@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Cable,
   RefreshCw,
   Lock,
   Copy,
@@ -8,15 +7,11 @@ import {
   Headphones,
   CheckCircle2,
   AlertTriangle,
-  Play,
   Check,
-  Send,
   Trash2,
   Clock,
   Radio,
-  ExternalLink,
   Volume2,
-  ShieldCheck,
   Zap,
 } from 'lucide-react';
 import { channelIdentity } from '../../shared/channels';
@@ -523,7 +518,7 @@ export function IntegrationConsole() {
             <span>Reset Server Pilot State</span>
           </button>
         </div>
-      </section>
+      </section>}
 
       {/* Profiles & Registered Webhook Endpoints */}
       {showTechnical && <>
