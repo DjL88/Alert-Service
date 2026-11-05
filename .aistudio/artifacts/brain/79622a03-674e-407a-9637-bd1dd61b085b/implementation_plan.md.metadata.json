@@ -1,0 +1,6 @@
+{
+  "summary": "Implementation plan for Store Alerts (Deliverect x VoCoVo middle handler prototype): architecture, multi-tenant data model, pages, rule engine, live kitchen screen, audio synthesizer, and end-to-end event simulator.",
+  "updatedAt": "2026-11-05T21:16:33.324634637Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
