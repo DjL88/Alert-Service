@@ -1,3 +1,4 @@
+import { IntegrationConsole } from './views/IntegrationConsole';
 import React, { useState } from 'react';
 import { StoreProvider, useStoreAlerts } from './context/StoreContext';
 import { OverviewView } from './views/OverviewView';
@@ -24,7 +25,7 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>('integrations');
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,6 +40,7 @@ function AppContent() {
   } = useStoreAlerts();
 
   const NAV_ITEMS = [
+    { id: 'integrations', label: 'Connect Deliverect' },
     { id: 'overview', label: 'Overview' },
     { id: 'tenant_map', label: 'Company & Map' },
     { id: 'stores', label: 'Stores & Mappings' },
@@ -78,7 +80,7 @@ function AppContent() {
                   </span>
                 </div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[#00A86B] hidden sm:block">
-                  VoCoVo Headset Alert Bridge
+                  Store Alerts · Provider Hub
                 </div>
               </div>
             </button>
@@ -197,6 +199,8 @@ function AppContent() {
 
       {/* Main Content Area (With min-w-0 max-w-full overflow-hidden to prevent mobile blowout) */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 min-w-0 max-w-full">
+        {activeTab === 'integrations' && <IntegrationConsole />}
+        {activeTab !== 'integrations' && <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-sm">Demo workspace — fictional stores and browser-only simulation. Live server data is under Connect Deliverect.</div>}
         {activeTab === 'overview' && <OverviewView onNavigate={(page) => setActiveTab(page)} />}
         {activeTab === 'tenant_map' && <TenantCompanyView onNavigate={(page) => setActiveTab(page)} />}
         {activeTab === 'stores' && <StoresView />}

@@ -1,0 +1,11 @@
+import 'dotenv/config';
+import {loadProfiles} from './config.ts';
+import {repository} from './storage.ts';
+import {createApp} from './app.ts';
+const origin=(process.env.PUBLIC_ORIGIN||'http://localhost:3000').replace(/\/$/,'');
+const url=new URL(origin);
+if(url.pathname!=='/' || url.search || url.hash || url.username || url.password) throw new Error('PUBLIC_ORIGIN must be an origin');
+if((process.env.NODE_ENV==='production'||process.env.K_SERVICE)&&url.protocol!=='https:') throw new Error('Production requires HTTPS PUBLIC_ORIGIN');
+const profiles=loadProfiles();
+const repo=await repository();
+createApp(repo,profiles,origin,process.env.SCHEDULER_TOKEN||'').listen(Number(process.env.PORT||8080),'0.0.0.0',()=>console.log(`Alert Service started with ${profiles.length} integration profiles`));
