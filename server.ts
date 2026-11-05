@@ -16,6 +16,9 @@ if (isProd && url.protocol !== 'https:') {
 const origin = rawOrigin;
 
 const profiles = loadProfiles();
+if (isProd && profiles.length === 0) {
+  console.warn('No integrations configured. The UI will load; configure INTEGRATIONS_JSON before connecting Deliverect.');
+}
 const repo = await repository();
 const schedulerToken = process.env.SCHEDULER_TOKEN || '';
 const app = createApp(repo, profiles, origin, schedulerToken);
