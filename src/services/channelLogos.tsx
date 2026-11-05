@@ -1,3 +1,4 @@
+import { brandFor } from '../../shared/channels';
 import React from 'react';
 import { ChannelConfig, ChannelId } from '../types';
 
@@ -81,6 +82,9 @@ export const ChannelLogo: React.FC<ChannelLogoProps> = ({
   };
 
   const dim = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-8 h-8' : 'w-6 h-6';
+
+  const brand = !channel.isCustom && brandFor(channel.name);
+  if (brand) return <img src={`/brand/channels/${brand[0]}.png`} alt={channel.name} title={channel.name} className={`object-contain shrink-0 ${dim} ${className}`} />;
 
   // Custom channel with uploaded image or data URL
   if (channel.isCustom && channel.logoSvg && channel.logoSvg.startsWith('data:image')) {
