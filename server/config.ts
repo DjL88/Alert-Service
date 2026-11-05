@@ -1,6 +1,35 @@
 import type {Profile} from './model.ts';
+export const DEFAULT_PILOT_PROFILES: Profile[] = [
+  {
+    id: 'pilot-screen',
+    tenantId: 'tenant-artisan',
+    accountId: 'deliv-acc-artisan-88',
+    provider: 'screen',
+    environment: 'staging',
+    adminToken: 'adm-token-artisan-screen-pilot-2026',
+    webhookSecret: 'sec-wh-artisan-screen-pilot-2026',
+    reportingSecret: 'sec-rep-artisan-screen-pilot-2026',
+  },
+  {
+    id: 'pilot-vocovo',
+    tenantId: 'tenant-artisan',
+    accountId: 'deliv-acc-artisan-88',
+    provider: 'vocovo',
+    environment: 'staging',
+    adminToken: 'adm-token-artisan-screen-pilot-2026',
+    webhookSecret: 'sec-wh-artisan-vocovo-pilot-2026',
+    reportingSecret: 'sec-rep-artisan-vocovo-pilot-2026',
+  },
+];
+
 export function loadProfiles(): Profile[] {
-  const profiles: Profile[] = JSON.parse(process.env.INTEGRATIONS_JSON || '[]');
+  let parsed: Profile[] = [];
+  if (process.env.INTEGRATIONS_JSON && process.env.INTEGRATIONS_JSON.trim()) {
+    parsed = JSON.parse(process.env.INTEGRATIONS_JSON);
+  } else {
+    parsed = DEFAULT_PILOT_PROFILES;
+  }
+  const profiles: Profile[] = parsed;
   const seen = new Set<string>();
   for (const p of profiles) {
     if (!/^[a-z0-9-]{1,80}$/.test(p.id) || seen.has(p.id)) throw new Error('Invalid or duplicate integration ID');

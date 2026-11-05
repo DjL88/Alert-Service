@@ -34,12 +34,43 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     for(const tenant of new Set(profiles.map(p=>p.tenantId))) await repo.transact(tenant,s=>sweep(s,new Date().toISOString()));
     res.json({ok:true});
   }));
+  app.use('/api', express.json({limit:'256kb'}));
   app.use('/api', (req:any,res,next)=>{
     const profile=profiles.find(p=>sameSecret(req.headers.authorization||'',`Bearer ${p.adminToken}`));
     if(!profile) {res.status(401).json({error:'Enter a valid server-configured admin token'});return;}
     req.tenantId=profile.tenantId;
     res.setHeader('Cache-Control','no-store'); next();
   });
+  app.post('/api/test/webhook', wrap(async(req:any,res:any)=>{
+    const {profileId, kind, payload} = req.body || {};
+    const p = profiles.find(p => p.id === profileId && p.tenantId === req.tenantId);
+    if (!p) throw new InputError('Unknown profile', 404);
+    const now = new Date().toISOString();
+    if (kind === 'registration') {
+      const mapping = await repo.transact(p.tenantId, s => register(s, p, payload, now));
+      res.json({ ok: true, mapping, statusUpdateURL: `${base(p)}/channel-status` });
+    } else {
+      const result = await repo.transact(p.tenantId, s => receive(s, p, kind, payload, now, profiles));
+      res.json({ ok: true, result });
+    }
+  }));
+  app.post('/api/test/sweep', wrap(async(req:any,res:any)=>{
+    await repo.transact(req.tenantId, s => sweep(s, new Date().toISOString()));
+    res.json({ ok: true });
+  }));
+  app.post('/api/test/reset', wrap(async(req:any,res:any)=>{
+    const { emptyState } = await import('./model.ts');
+    await repo.transact(req.tenantId, s => {
+      const fresh = emptyState();
+      s.orders = [];
+      s.events = [];
+      s.alerts = [];
+      s.mappings = [];
+      s.pendingEvents = [];
+      s.channels = fresh.channels;
+    });
+    res.json({ ok: true });
+  }));
   app.get('/api/console',wrap(async(req:any,res:any)=>{
     const state=await repo.transact(req.tenantId,s=>s);
     res.json({state,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',

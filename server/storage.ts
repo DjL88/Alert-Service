@@ -39,6 +39,7 @@ export async function repository(): Promise<Repository> {
       return result;
     })};
   }
-  if (process.env.NODE_ENV === 'production' || process.env.K_SERVICE) throw new Error('Production requires STORAGE_DRIVER=firestore');
+  const isProd = process.env.NODE_ENV === 'production' && !process.env.K_SERVICE?.startsWith('ais-dev');
+  if (isProd) throw new Error('Production requires STORAGE_DRIVER=firestore');
   return new FileRepository(process.env.DATA_DIR || '.data');
 }

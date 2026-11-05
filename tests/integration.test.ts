@@ -90,3 +90,12 @@ test('unrecognised status keys cannot resolve object prototype properties',()=>{
  const s=setup();assert.throws(()=>register(s,profile,{...registration,status:'__proto__'},now));
  receive(s,profile,'orders',{...order,status:'toString'},now,[profile]);assert.equal(s.orders[0].phase,'unknown');
 });
+
+test('profile loading validates IDs, secrets length, and default pilot profiles',async()=>{
+ const {loadProfiles,DEFAULT_PILOT_PROFILES}=await import('../server/config.ts');
+ const loaded=loadProfiles();
+ assert(loaded.length>=2);
+ assert(loaded.some(p=>p.provider==='screen'));
+ assert(loaded.some(p=>p.provider==='vocovo'));
+ assert(DEFAULT_PILOT_PROFILES.every(p=>p.adminToken.length>=24));
+});
