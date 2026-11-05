@@ -15,13 +15,10 @@ import { SearchableStoreModal } from './components/SearchableStoreModal';
 import {
   Volume2,
   VolumeX,
-  Search,
   ChevronDown,
   Menu,
   X,
   MapPin,
-  Settings,
-  Sparkles,
 } from 'lucide-react';
 
 function AppContent() {
@@ -29,28 +26,29 @@ function AppContent() {
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
   const {
     selectedStore,
-    selectedTenant,
     waitingOrdersCount,
     isAudioMuted,
     toggleAudioMute,
-    audioQueueState,
   } = useStoreAlerts();
 
   const NAV_ITEMS = [
-    { id: 'integrations', label: 'Connect Deliverect' },
+    { id: 'integrations', label: 'Dashboard' },
     { id: 'overview', label: 'Overview' },
-    { id: 'tenant_map', label: 'Company & Map' },
-    { id: 'stores', label: 'Stores & Mappings' },
-    { id: 'live_screen', label: 'Live KDS Screen', badge: waitingOrdersCount > 0 ? waitingOrdersCount : undefined },
-    { id: 'simulator', label: 'Event Simulator' },
-    { id: 'timeline', label: 'Event Timeline' },
-    { id: 'destinations', label: 'Destinations' },
-    { id: 'rules', label: 'Alert Rules' },
+    { id: 'tenant_map', label: 'Companies' },
+    { id: 'stores', label: 'Stores' },
+    { id: 'live_screen', label: 'Order screen', badge: waitingOrdersCount > 0 ? waitingOrdersCount : undefined },
+    { id: 'simulator', label: 'Test orders' },
+    { id: 'timeline', label: 'History' },
+    { id: 'destinations', label: 'Outputs' },
+    { id: 'rules', label: 'Alert rules' },
     { id: 'settings', label: 'Settings' },
   ];
+  const visibleItems = showDemo ? NAV_ITEMS : NAV_ITEMS.slice(0, 1);
+
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
@@ -60,7 +58,7 @@ function AppContent() {
           {/* Zone 1: Deliverect Retail Brand Lockup */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab('integrations')}
               className="flex items-center gap-2 text-left focus:outline-hidden group"
             >
               {/* Deliverect Tilted Tag Logo Mark */}
@@ -73,14 +71,8 @@ function AppContent() {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-sm sm:text-base font-black tracking-tight text-slate-900 whitespace-nowrap">
-                    deliverect
+                    Store Alerts
                   </span>
-                  <span className="text-xs sm:text-sm font-light text-slate-500 whitespace-nowrap">
-                    retail
-                  </span>
-                </div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#00A86B] hidden sm:block">
-                  Store Alerts · Provider Hub
                 </div>
               </div>
             </button>
@@ -88,7 +80,7 @@ function AppContent() {
 
           {/* Zone 2: Navigation Links (Desktop) */}
           <nav className="hidden xl:flex items-center gap-1 min-w-0 overflow-x-auto">
-            {NAV_ITEMS.map((item) => {
+            {visibleItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
                 <button
@@ -143,7 +135,7 @@ function AppContent() {
                   ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
                   : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
               }`}
-              title={isAudioMuted ? 'Unmute British Railway voice announcement' : 'Mute voice audio'}
+              title={isAudioMuted ? 'Turn on sound' : 'Mute sound'}
             >
               {isAudioMuted ? (
                 <VolumeX className="w-4 h-4 text-rose-600" />
@@ -151,7 +143,7 @@ function AppContent() {
                 <Volume2 className="w-4 h-4 text-emerald-600 animate-pulse" />
               )}
               <span className="hidden md:inline">
-                {isAudioMuted ? 'Muted' : 'Railway Voice'}
+                {isAudioMuted ? 'Sound off' : 'Sound on'}
               </span>
             </button>
 
@@ -170,7 +162,7 @@ function AppContent() {
         {mobileMenuOpen && (
           <div className="xl:hidden pt-3 pb-2 border-t border-slate-100 mt-2 space-y-1">
             <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Company: {selectedTenant.name}
+              Navigation
             </div>
             {NAV_ITEMS.map((item) => (
               <button
@@ -200,7 +192,7 @@ function AppContent() {
       {/* Main Content Area (With min-w-0 max-w-full overflow-hidden to prevent mobile blowout) */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 min-w-0 max-w-full">
         {activeTab === 'integrations' && <IntegrationConsole />}
-        {activeTab !== 'integrations' && <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-sm">Demo workspace — fictional stores and browser-only simulation. Live server data is under Connect Deliverect.</div>}
+        {activeTab !== 'integrations' && <div className="mb-4 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm">Demo only — these stores and orders are examples, not connected to Deliverect.</div>}
         {activeTab === 'overview' && <OverviewView onNavigate={(page) => setActiveTab(page)} />}
         {activeTab === 'tenant_map' && <TenantCompanyView onNavigate={(page) => setActiveTab(page)} />}
         {activeTab === 'stores' && <StoresView />}
@@ -214,19 +206,15 @@ function AppContent() {
         )}
       </main>
 
-      {/* Footer / Architecture Status */}
-      <footer className="bg-white border-t border-slate-200 py-3 sm:py-4 px-4 sm:px-6 text-xs text-slate-500 w-full max-w-full">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800">Deliverect Retail</span>
-            <span>·</span>
-            <span>Store Alerts & VoCoVo Middle Handler</span>
-          </div>
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
-            <span>Font: Proxima Nova</span>
-            <span>·</span>
-            <span className="text-emerald-700 font-bold">Sequential Audio Queue Active</span>
-          </div>
+      <footer className="bg-white border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <span>Store Alerts</span>
+          <button
+            onClick={() => { setShowDemo(v => !v); setActiveTab('integrations'); setMobileMenuOpen(false); }}
+            className="text-slate-600 hover:text-slate-900 underline underline-offset-2"
+          >
+            {showDemo ? 'Hide demo tools' : 'Show demo tools'}
+          </button>
         </div>
       </footer>
 

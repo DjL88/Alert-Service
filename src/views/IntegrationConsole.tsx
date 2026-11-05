@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Cable,
   RefreshCw,
   Lock,
   Copy,
@@ -8,15 +7,11 @@ import {
   Headphones,
   CheckCircle2,
   AlertTriangle,
-  Play,
   Check,
-  Send,
   Trash2,
   Clock,
   Radio,
-  ExternalLink,
   Volume2,
-  ShieldCheck,
   Zap,
 } from 'lucide-react';
 import { channelIdentity } from '../../shared/channels';
@@ -37,8 +32,6 @@ type ConsoleData = {
   capabilities: Record<string, string>;
 };
 
-const DEFAULT_PILOT_TOKEN = 'adm-token-artisan-screen-pilot-2026';
-
 export function IntegrationConsole() {
   const [token, setToken] = useState('');
   const [draft, setDraft] = useState('');
@@ -54,19 +47,27 @@ export function IntegrationConsole() {
   const [copied, setCopied] = useState('');
   const [lastLoaded, setLastLoaded] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showTests, setShowTests] = useState(false);
+  const [showTechnical, setShowTechnical] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Track seen alert IDs to trigger voice announcements for new server alerts
   const seenAlertIdsRef = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async (auth = token) => {
     if (!auth) return;
+    setLoading(true);
     try {
       const r = await fetch('/api/console', {
         headers: { Authorization: `Bearer ${auth}` },
         cache: 'no-store',
       });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.error || 'Connection failed');
+      const body = await r.json().catch(() => null);
+      if (!r.ok) {
+        if (r.status === 401) throw new Error('Access denied. Check your access token.');
+        throw new Error(body?.error || `Unable to load data (HTTP ${r.status}).`);
+      }
+      if (!body?.state || !Array.isArray(body.state.orders)) throw new Error('The server returned an unexpected response.');
       if (authRef.current !== auth) return;
 
       // Check for new server alerts and announce via audio queue
@@ -92,7 +93,9 @@ export function IntegrationConsole() {
       setError('');
       setLastLoaded(new Date().toLocaleTimeString());
     } catch (e: any) {
-      if (authRef.current === auth) setError(e.message);
+      if (authRef.current === auth) setError(e instanceof TypeError ? 'Cannot connect to the server. Check that the app is running and try again.' : e.message);
+    } finally {
+      if (authRef.current === auth) setLoading(false);
     }
   }, [token]);
 
@@ -210,83 +213,19 @@ export function IntegrationConsole() {
 
   if (!token) {
     return (
-      <section className="max-w-2xl mx-auto py-8 sm:py-12">
+      <section className="max-w-lg mx-auto py-10 sm:py-16">
         <div className={panel}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-[#052F24] text-[#00D084] flex items-center justify-center shrink-0 shadow-2xs">
-              <Cable className="w-5 h-5" />
-            </div>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">Connect to Store Alerts</h1>
+          <p className="text-sm text-slate-600 mb-6">Enter the access token provided by your administrator.</p>
+          <form onSubmit={(event) => { event.preventDefault(); setError(''); setToken(draft.trim()); setDraft(''); }} className="space-y-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Deliverect Integration Console
-              </h1>
-              <p className="text-xs text-slate-500">
-                Live Server Backend · Multi-Tenant Isolation · Persistent State
-              </p>
+              <label htmlFor="admin-token" className="block text-sm font-medium text-slate-700 mb-2">Access token</label>
+              <input id="admin-token" type="password" autoComplete="off" required value={draft} onChange={(event) => setDraft(event.target.value)}
+                placeholder="Enter access token" className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
             </div>
-          </div>
-
-          <p className="text-sm text-slate-600 leading-relaxed mb-6">
-            Connect to the server-backed webhook receiver, durable store mappings, and real-time alert engine. This console interacts directly with Express routes (<code className="bg-slate-100 px-1 py-0.5 rounded text-xs">/webhooks/deliverect/*</code> and <code className="bg-slate-100 px-1 py-0.5 rounded text-xs">/api/console</code>) with HMAC-SHA256 verification.
-          </p>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setToken(draft.trim());
-              setDraft('');
-            }}
-            className="space-y-4"
-          >
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5" htmlFor="admin-token">
-                Tenant Admin Access Token
-              </label>
-              <input
-                id="admin-token"
-                type="password"
-                autoComplete="off"
-                placeholder="Enter 24+ character tenant admin token"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                required
-                className="w-full border border-slate-300 rounded-xl p-3 text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-[#00D084]"
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <button
-                type="submit"
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl px-5 py-2.5 text-sm transition-colors shadow-2xs"
-              >
-                Sign In to Console
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setToken(DEFAULT_PILOT_TOKEN);
-                }}
-                className="bg-[#052F24] hover:bg-[#084234] text-[#00D084] font-bold rounded-xl px-4 py-2.5 text-sm transition-colors flex items-center justify-center gap-2 border border-[#00D084]/30"
-              >
-                <Zap className="w-4 h-4" />
-                <span>Use Staging Pilot Token</span>
-              </button>
-            </div>
+            <button type="submit" className="w-full rounded-lg bg-slate-900 text-white py-2.5 text-sm font-medium hover:bg-slate-800">Connect</button>
           </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-100 text-xs text-slate-500 space-y-2">
-            <div className="flex items-center gap-2 text-slate-700 font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Pilot Configuration Guidelines:</span>
-            </div>
-            <p>
-              Default pilot token: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-[11px] text-slate-800">{DEFAULT_PILOT_TOKEN}</code>.
-            </p>
-            <p>
-              In production or Cloud Run, configure <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">INTEGRATIONS_JSON</code> in Google Secret Manager with account IDs, signing secrets, and admin tokens.
-            </p>
-          </div>
+          <p className="mt-5 text-xs text-slate-500">No access token? Configure an integration on the server first.</p>
         </div>
       </section>
     );
@@ -309,13 +248,13 @@ export function IntegrationConsole() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Integration Console</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Store Alerts</h1>
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-              Live Server
+              Connected
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Storage Driver: <strong className="font-semibold text-slate-700">{data?.storage || 'Connecting...'}</strong> · Last synced: {lastLoaded || '—'}
+            {loading && !data ? 'Loading…' : `Updated ${lastLoaded || 'just now'}`}
           </p>
         </div>
 
@@ -329,7 +268,7 @@ export function IntegrationConsole() {
             }`}
           >
             <Radio className={`w-3.5 h-3.5 ${autoRefresh ? 'text-emerald-600 animate-pulse' : 'text-slate-400'}`} />
-            <span>{autoRefresh ? 'Auto-poll (8s)' : 'Polling paused'}</span>
+            <span>{autoRefresh ? 'Live updates' : 'Updates paused'}</span>
           </button>
 
           <button
@@ -372,43 +311,47 @@ export function IntegrationConsole() {
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <div className={panel}>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Registered Links</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Connected stores</p>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{mappings.length}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Automatic store mapping</p>
+
         </div>
         <div className={panel}>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Orders Waiting</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Waiting orders</p>
           <p className="text-2xl sm:text-3xl font-black text-rose-600 mt-1">{waitingOrders.length}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Awaiting Quest picking</p>
+
         </div>
         <div className={panel}>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Alerts</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Active alerts</p>
           <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">{activeAlerts.length}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Headset & screen intent</p>
+
         </div>
         <div className={panel}>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Synced Channels</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Channels</p>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{data?.state.channels.length || 0}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Deliverect API directory</p>
+
         </div>
       </div>
 
-      {/* Interactive Server Test Workbench */}
-      <section className={`${panel} border-emerald-200 bg-gradient-to-br from-white to-emerald-50/20`}>
+      <div className="flex flex-wrap gap-3 items-center">
+        <button className="text-sm text-slate-600 underline underline-offset-2" onClick={() => setShowTests(v => !v)}>{showTests ? 'Hide test tools' : 'Show test tools'}</button>
+        <button className="text-sm text-slate-600 underline underline-offset-2" onClick={() => setShowTechnical(v => !v)}>{showTechnical ? 'Hide connection details' : 'Connection details'}</button>
+      </div>
+      {/* Test tools are intentionally hidden until needed */}
+      {showTests && <section className={`${panel} border-emerald-200 bg-gradient-to-br from-white to-emerald-50/20`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-emerald-600" />
             <h2 className="font-bold text-base sm:text-lg text-slate-900">
-              Live Webhook Test Workbench
+              Test events
             </h2>
           </div>
           <span className="text-xs text-slate-500">
-            Triggers real server-side HMAC validation and durable storage transitions
+            Test actions change the connected pilot data.
           </span>
         </div>
 
         <p className="text-xs text-slate-600 mb-4">
-          Test end-to-end Deliverect webhook intake directly on this server. Actions compute raw body payloads, apply domain invariants, trigger sequential audio alerts, and record audit logs.
+          Use these controls to test registration, orders and picking before connecting a live retailer.
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -575,9 +518,10 @@ export function IntegrationConsole() {
             <span>Reset Server Pilot State</span>
           </button>
         </div>
-      </section>
+      </section>}
 
       {/* Profiles & Registered Webhook Endpoints */}
+      {showTechnical && <>
       <div className="grid lg:grid-cols-2 gap-4">
         {data?.profiles.map((p) => (
           <section className={panel} key={p.id}>
@@ -588,7 +532,7 @@ export function IntegrationConsole() {
                 </div>
                 <div>
                   <h2 className="font-bold text-base text-slate-900">{p.id}</h2>
-                  <p className="text-[11px] text-slate-500">Provider: {p.provider.toUpperCase()} · Account: {p.accountId}</p>
+                  <p className="text-[11px] text-slate-500">{p.provider.toUpperCase()} · {p.accountId}</p>
                 </div>
               </div>
               <span className="text-xs rounded-full px-2.5 py-0.5 bg-amber-50 text-amber-800 font-bold border border-amber-200">
@@ -597,7 +541,7 @@ export function IntegrationConsole() {
             </div>
 
             <p className="text-xs text-slate-500 my-2.5 leading-relaxed">
-              Auto-maps store destination from registration’s <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">channelLocationId</code>.
+              Stores are linked automatically when Deliverect registers them.
             </p>
 
             <div className="space-y-2 mt-3">
@@ -629,11 +573,11 @@ export function IntegrationConsole() {
                 onClick={() => void syncChannels(p.id)}
                 className="bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-xl px-4 py-2 text-xs font-bold transition-colors"
               >
-                {busy ? 'Syncing...' : 'Sync Deliverect Channel Directory'}
+                {busy ? 'Syncing...' : 'Sync channels'}
               </button>
               {!p.credentialsConfigured && (
                 <span className="text-[11px] text-amber-800 font-semibold">
-                  Add clientId & clientSecret to sync /allChannels
+                  Add Deliverect credentials on the server
                 </span>
               )}
             </div>
@@ -645,14 +589,14 @@ export function IntegrationConsole() {
       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs sm:text-sm text-amber-950 flex gap-3 shadow-2xs">
         <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <p className="font-bold">Architectural Boundary & Quest Fulfillment Coexistence:</p>
+          <p className="font-bold">Integration limits</p>
           <p className="leading-relaxed">
-            Deliverect Channel registration connects locations to internal destinations; cross-channel reporting and picking events require independent Deliverect provisioning. Picking writes remain disabled so this platform never conflicts with rugged Zebra scanners running Quest. Headset playback receipts remain disabled pending VoCoVo API credential provisioning.
+            Deliverect may need to enable additional event access. This service does not change orders in Quest. VoCoVo delivery is not active until its integration is configured.
           </p>
         </div>
       </div>
 
-      {/* Automatically Registered Destinations */}
+      {/* Store connections */}
       <section className={panel}>
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="font-bold text-base sm:text-lg text-slate-900">
@@ -665,7 +609,7 @@ export function IntegrationConsole() {
 
         {!mappings.length ? (
           <p className="text-xs text-slate-500 py-3">
-            Waiting for the first signed registration webhook. Use the VoCoVo store reference as the external location ID.
+            Waiting for the first signed registration webhook. 
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -720,7 +664,8 @@ export function IntegrationConsole() {
         )}
       </section>
 
-      {/* Live Operations Board */}
+      </>}
+      {/* Orders */}
       <section className={panel}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
@@ -786,7 +731,7 @@ export function IntegrationConsole() {
                 <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
                   <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
                     <Lock className="w-3 h-3 text-slate-400" />
-                    Quest picking lock
+                    Read-only order status
                   </span>
                   {o.reminders > 0 && (
                     <span className="text-amber-700 font-bold">
@@ -801,7 +746,7 @@ export function IntegrationConsole() {
 
         {!orders.length && (
           <p className="text-xs text-slate-500 py-6 text-center">
-            No active orders received for this selection. Use the Test Workbench above to inject a test order.
+            No active orders yet.
           </p>
         )}
       </section>
@@ -810,9 +755,9 @@ export function IntegrationConsole() {
       <section className={panel}>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h2 className="font-bold text-base sm:text-lg text-slate-900">Delivery Channel Directory</h2>
+            <h2 className="font-bold text-base sm:text-lg text-slate-900">Channels</h2>
             <p className="text-xs text-slate-500">
-              Numeric channel IDs resolved from Deliverect API directory with Dave's LTx artwork pack
+              Channels returned by Deliverect.
             </p>
           </div>
           <span className="text-xs font-bold text-slate-500">
@@ -841,9 +786,9 @@ export function IntegrationConsole() {
       <section className={panel}>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div>
-            <h2 className="font-bold text-base sm:text-lg text-slate-900">Recent Webhook Events</h2>
+            <h2 className="font-bold text-base sm:text-lg text-slate-900">Recent activity</h2>
             <p className="text-xs text-slate-500">
-              Audit log of verified HMAC requests and idempotency results ({data?.state.pendingEvents?.length || 0} awaiting orders)
+              Received updates ({data?.state.pendingEvents?.length || 0} awaiting orders)
             </p>
           </div>
         </div>
@@ -895,9 +840,9 @@ export function IntegrationConsole() {
       {/* Alert Outcomes Log */}
       <section className={panel}>
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="font-bold text-base sm:text-lg text-slate-900">Alert Dispatch Outcomes</h2>
+          <h2 className="font-bold text-base sm:text-lg text-slate-900">Alert history</h2>
           <span className="text-xs text-slate-500">
-            Strict provider receipt semantics (never labelled &quot;heard by staff&quot;)
+            
           </span>
         </div>
 
