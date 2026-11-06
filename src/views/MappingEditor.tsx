@@ -9,7 +9,7 @@ export function MappingEditor({token,tenant}:{token:string;tenant:string}) {
  const [overrides,setOverrides]=useState('{}'),[kind,setKind]=useState('orders'),[result,setResult]=useState(''),[error,setError]=useState('');
  const headers={Authorization:'Bearer '+token,'Content-Type':'application/json',...(tenant?{'X-Tenant-ID':tenant}:{})};
  async function load(){const r=await fetch('/api/rules',{headers});if(!r.ok)throw Error('Could not load rules');setRules((await r.json()).rules);const response=await fetch('/api/integrators',{headers});if(response.ok)setIntegrators((await response.json()).integrators);}
- useEffect(()=>{void load().catch(e=>setError(e.message));},[token]);
+ useEffect(()=>{void load().catch(e=>setError(e.message));},[token,tenant]);
  const edit=(patch:Partial<Rule>)=>setRule(r=>({...r,...patch}));
  async function save(){try{setError('');const id=rule.id||crypto.randomUUID();const r=await fetch('/api/rules/'+encodeURIComponent(id),{method:'PUT',headers,body:JSON.stringify({...rule,id,overrides:JSON.parse(overrides)})});const body=await r.json();if(!r.ok)throw Error(body.error);setRule(body.rule);await load();setResult('Rule saved.');}catch(e:any){setError(e.message);}}
  async function preview(){try{setError('');const r=await fetch('/api/rules/preview',{method:'POST',headers,body:JSON.stringify({rule,payload:JSON.parse(sample),overrides:JSON.parse(overrides),kind})});const body=await r.json();if(!r.ok)throw Error(body.error);setResult(JSON.stringify(body,null,2));}catch(e:any){setError(e.message);}}
