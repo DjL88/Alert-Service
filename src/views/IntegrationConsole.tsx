@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {AlertCircle, Check, ChevronDown, ChevronUp, Copy, RefreshCw, Settings2} from 'lucide-react';
+import {AlertCircle, Check, Copy, RefreshCw, Settings2} from 'lucide-react';
 import {channelIdentity} from '../../shared/channels';
 import type {State} from '../../server/model';
 
