@@ -45,6 +45,11 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   app.use('/api', (req:any,res,next)=>{
     const principal=authenticate(String(req.headers.authorization||''),profiles);
     if(!principal) {res.status(401).json({error:'Invalid access token'});return;}
+    if(principal.role==='superadmin') {
+      const tenant=String(req.headers['x-tenant-id']||'');
+      if(!profiles.some(p=>p.tenantId===tenant)) return res.status(400).json({error:'Select a valid tenant using X-Tenant-ID'});
+      principal.tenantId=tenant;
+    }
     req.principal=principal;
     req.tenantId=principal.tenantId;
     res.setHeader('Cache-Control','no-store'); next();
@@ -120,7 +125,7 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   app.get('/api/console',wrap(async(req:any,res:any)=>{
     const state=repo.read ? await repo.read(req.tenantId) : await repo.transact(req.tenantId,s=>s);
     res.json({state:visibleState(state,req.principal),role:req.principal.role,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',
-      profiles:(req.principal.role==='store'?[]:profiles.filter(p=>req.principal.role==='superadmin'||p.tenantId===req.tenantId)).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
+      profiles:(req.principal.role==='store'?[]:profiles.filter(p=>p.tenantId===req.tenantId)).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
         credentialsConfigured:!!(p.clientId&&p.clientSecret),
         urls:{registration:`${base(p)}/registration`,orders:`${base(p)}/orders`,status:`${base(p)}/status`,picking:`${base(p)}/picking`}})),
       capabilities:{vocovo:'Awaiting provider API contract',pickingWrites:'Disabled: Quest coexistence not verified',reporting:'Requires separate Deliverect provisioning'},
