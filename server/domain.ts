@@ -129,7 +129,7 @@ export function receive(s: State, p: Profile, kind: string, body: any, now: stri
   }
   const result=ingest(s,p,kind,body,now);
   if(kind==='orders') {
-    const matches=s.pendingEvents.filter(e=>e.body.orderId===orderId && e.body.location===body.location).sort((a,b)=>String(a.body.timeStamp).localeCompare(String(b.body.timeStamp)));
+    const matches=s.pendingEvents.filter(e=>e.body.orderId===orderId && e.body.location===(body.location ?? body.locationId)).sort((a,b)=>String(a.body.timeStamp).localeCompare(String(b.body.timeStamp)));
     for(const event of matches) {
       const owner=profiles.find(candidate=>candidate.id===event.profileId && candidate.tenantId===p.tenantId);
       if(!owner) continue;
