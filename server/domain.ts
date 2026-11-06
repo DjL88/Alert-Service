@@ -54,7 +54,7 @@ export function register(s: State, p: Profile, body: any, now: string) {
     // Re-registration refreshes metadata without re-enabling a disabled link.
     state: state === 'registered' && existing ? existing.state : state, provider:p.provider, updatedAt:now};
   if (existing) Object.assign(existing, mapping); else s.mappings.push(mapping);
-  if (mapping.state !== 'active') for (const a of s.alerts.filter(a => a.mappingId === mapping.id)) {a.status='suppressed'; a.reason='Registration not active';}
+  if (mapping.state !== 'active' && !s.mappings.some(m=>m.locationId===location&&m.state==='active')) for (const a of s.alerts.filter(a => a.locationId === location && a.status!=='suppressed')) {a.status='suppressed'; a.reason='Registration not active';}
   s.events.push({id:hash(`${p.id}:${link}:${now}`), kind:'registration', at:now, profileId:p.id, locationId:location, result:mapping.state});
   trimState(s);
   return mapping;
