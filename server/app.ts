@@ -77,7 +77,7 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     res.json({ ok: true });
   }));
   app.get('/api/console',wrap(async(req:any,res:any)=>{
-    const state=await repo.transact(req.tenantId,s=>s);
+    const state=repo.read ? await repo.read(req.tenantId) : await repo.transact(req.tenantId,s=>s);
     res.json({state,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',
       profiles:profiles.filter(p=>p.tenantId===req.tenantId).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
         credentialsConfigured:!!(p.clientId&&p.clientSecret),
