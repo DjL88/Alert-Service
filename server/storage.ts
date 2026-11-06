@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { emptyState, type State } from './model.ts';
-export interface Repository { transact<T>(tenant: string, fn: (state: State) => T): Promise<T>; }
+export interface Repository { transact<T>(tenant: string, fn: (state: State) => T): Promise<T>; read?(tenant: string): Promise<State>; }
 const key = (v: string) => createHash('sha256').update(v).digest('hex');
 // Local development only. Firestore is required for Cloud Run/multiple instances.
 export class FileRepository implements Repository {
@@ -10,6 +10,11 @@ export class FileRepository implements Repository {
   private directory: string;
   constructor(directory: string) {
     this.directory = directory;
+  }
+  async read(tenant: string): Promise<State> {
+    const file = resolve(this.directory, key(tenant)+'.json');
+    try {return JSON.parse(await readFile(file,'utf8')) as State;}
+    catch(e:any) {if (e.code==='ENOENT') return emptyState(); throw e;}
   }
   transact<T>(tenant: string, fn: (state: State) => T): Promise<T> {
     const run = this.queue.then(async () => {
@@ -31,7 +36,12 @@ export async function repository(): Promise<Repository> {
   if (process.env.STORAGE_DRIVER === 'firestore') {
     const {Firestore} = await import('@google-cloud/firestore');
     const db = new Firestore();
-    return {transact: (tenant, fn) => db.runTransaction(async tx => {
+    return {
+      read: async tenant => {
+        const snap = await db.collection('alertPilotTenants').doc(key(tenant)).get();
+        return (snap.data() as State | undefined) || emptyState();
+      },
+      transact: (tenant, fn) => db.runTransaction(async tx => {
       const ref = db.collection('alertPilotTenants').doc(key(tenant));
       const snap = await tx.get(ref);
       const state = (snap.data() as State | undefined) || emptyState();
