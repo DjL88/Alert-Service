@@ -90,6 +90,28 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     });
     res.json({ ok: true });
   }));
+  app.get('/api/integrators',wrap(async(req:any,res:any)=>{
+    if(req.principal.role==='store')throw new InputError('Forbidden',403);
+    const state=repo.read?await repo.read(req.tenantId):await repo.transact(req.tenantId,s=>s);
+    res.json({integrators:state.integrators||[]});
+  }));
+  app.put('/api/integrators/:id',wrap(async(req:any,res:any)=>{
+    if(req.principal.role!=='superadmin')throw new InputError('Super Admin required',403);
+    const {name,channelName,channelId,endpoint,enabled}=req.body||{};
+    if(!/^[a-z0-9-]{1,64}$/.test(req.params.id)||typeof name!=='string'||!name.trim()||name.length>100||typeof channelName!=='string'||channelName.length>120||typeof endpoint!=='string'||endpoint.length>1000||typeof enabled!=='boolean')throw new InputError('Invalid integrator',400);
+    if(channelId!==undefined&&(typeof channelId!=='string'||channelId.length>100))throw new InputError('Invalid channel ID',400);
+    // This endpoint is configuration-only. No outbound HTTP request is performed.
+    if(endpoint){let url:URL;try{url=new URL(endpoint);}catch{throw new InputError('Invalid URL',400);}
+      if(url.protocol!=='https:'||url.username||url.password||url.hash)throw new InputError('HTTPS URL required without embedded credentials',400);
+    }
+    const integrator={id:req.params.id,name:name.trim(),channelName:channelName.trim(),channelId,endpoint,enabled,updatedAt:new Date().toISOString()};
+    await repo.transact(req.tenantId,s=>{
+      s.integrators||=[];const index=s.integrators.findIndex(i=>i.id===integrator.id);
+      if(index<0&&s.integrators.length>=30)throw new InputError('Integrator limit reached',409);
+      if(index>=0)s.integrators[index]=integrator;else s.integrators.push(integrator);
+    });
+    res.json({integrator});
+  }));
   app.get('/api/rules',wrap(async(req:any,res:any)=>{
     if(req.principal.role==='store') throw new InputError('Forbidden',403);
     const state=repo.read?await repo.read(req.tenantId):await repo.transact(req.tenantId,s=>s);
