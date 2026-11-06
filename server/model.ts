@@ -18,7 +18,8 @@ export type Alert = { id: string; locationId: string; orderId: string; message: 
   expiresAt: string; mappingId: string; provider: string; status: 'screen_available' | 'blocked' | 'suppressed'; reason?: string };
 export type PendingEvent = { id: string; profileId: string; kind: string; receivedAt: string; body: Record<string, string | number> };
 export type MappingRule = { id: string; name: string; enabled: boolean; channelName: string; event: string; destination: 'kds' | 'vocovo' | 'webhook'; template: string; overrides?: Record<string,string>; updatedAt: string }; 
-export type State = { rules?: MappingRule[]; pendingEvents?: PendingEvent[]; mappings: Mapping[]; orders: Order[]; events: Event[]; alerts: Alert[];
+export type Integrator = {id:string;name:string;channelName:string;channelId?:string;endpoint:string;enabled:boolean;updatedAt:string};
+export type State = { integrators?: Integrator[]; rules?: MappingRule[]; pendingEvents?: PendingEvent[]; mappings: Mapping[]; orders: Order[]; events: Event[]; alerts: Alert[];
   channels: { channelId: string | number; name: string }[]; channelsSyncedAt?: string;
   lastFeedAt?: string; lastSweepAt?: string };
 export const emptyState = (): State => ({mappings: [], orders: [], events: [], alerts: [], channels: []});

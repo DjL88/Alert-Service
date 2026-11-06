@@ -1,6 +1,7 @@
 import express from 'express';
 import {randomUUID} from 'node:crypto';
 import {normalize,render,validateRule,matches} from './mapping.ts';
+import {authenticate,visibleState} from './access.ts';
 import {resolve} from 'node:path';
 import type {Profile} from './model.ts';
 import type {Repository} from './storage.ts';
@@ -42,10 +43,22 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   }));
   app.use('/api', express.json({limit:'256kb'}));
   app.use('/api', (req:any,res,next)=>{
-    const profile=profiles.find(p=>sameSecret(req.headers.authorization||'',`Bearer ${p.adminToken}`));
-    if(!profile) {res.status(401).json({error:'Enter a valid server-configured admin token'});return;}
-    req.tenantId=profile.tenantId;
+    const principal=authenticate(String(req.headers.authorization||''),profiles);
+    if(!principal) {res.status(401).json({error:'Invalid access token'});return;}
+    if(principal.role==='superadmin') {
+      const tenant=String(req.headers['x-tenant-id']||'');
+      if(!profiles.some(p=>p.tenantId===tenant)) return res.status(400).json({error:'Select a valid tenant using X-Tenant-ID'});
+      principal.tenantId=tenant;
+    }
+    req.principal=principal;
+    req.tenantId=principal.tenantId;
     res.setHeader('Cache-Control','no-store'); next();
+  });
+  app.use('/api',(req:any,res,next)=>{
+    if(req.principal.role==='store' && !(req.method==='GET' && req.path==='/console')) return res.status(403).json({error:'Store access is read-only and restricted to its KDS'});
+    if(req.principal.role==='tenantadmin' && (/^\/rules(?:\/|$)/.test(req.path) && req.method!=='GET')) return res.status(403).json({error:'Super Admin access required'});
+    if(req.principal.role==='tenantadmin' && /^\/test\//.test(req.path)) return res.status(403).json({error:'Super Admin access required'});
+    next();
   });
   app.post('/api/test/webhook', wrap(async(req:any,res:any)=>{
     const {profileId, kind, payload} = req.body || {};
@@ -77,11 +90,35 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     });
     res.json({ ok: true });
   }));
+  app.get('/api/integrators',wrap(async(req:any,res:any)=>{
+    if(req.principal.role==='store')throw new InputError('Forbidden',403);
+    const state=repo.read?await repo.read(req.tenantId):await repo.transact(req.tenantId,s=>s);
+    res.json({integrators:state.integrators||[]});
+  }));
+  app.put('/api/integrators/:id',wrap(async(req:any,res:any)=>{
+    if(req.principal.role!=='superadmin')throw new InputError('Super Admin required',403);
+    const {name,channelName,channelId,endpoint,enabled}=req.body||{};
+    if(!/^[a-z0-9-]{1,64}$/.test(req.params.id)||typeof name!=='string'||!name.trim()||name.length>100||typeof channelName!=='string'||channelName.length>120||typeof endpoint!=='string'||endpoint.length>1000||typeof enabled!=='boolean')throw new InputError('Invalid integrator',400);
+    if(channelId!==undefined&&(typeof channelId!=='string'||channelId.length>100))throw new InputError('Invalid channel ID',400);
+    // This endpoint is configuration-only. No outbound HTTP request is performed.
+    if(endpoint){let url:URL;try{url=new URL(endpoint);}catch{throw new InputError('Invalid URL',400);}
+      if(url.protocol!=='https:'||url.username||url.password||url.hash)throw new InputError('HTTPS URL required without embedded credentials',400);
+    }
+    const integrator={id:req.params.id,name:name.trim(),channelName:channelName.trim(),channelId,endpoint,enabled,updatedAt:new Date().toISOString()};
+    await repo.transact(req.tenantId,s=>{
+      s.integrators||=[];const index=s.integrators.findIndex(i=>i.id===integrator.id);
+      if(index<0&&s.integrators.length>=30)throw new InputError('Integrator limit reached',409);
+      if(index>=0)s.integrators[index]=integrator;else s.integrators.push(integrator);
+    });
+    res.json({integrator});
+  }));
   app.get('/api/rules',wrap(async(req:any,res:any)=>{
+    if(req.principal.role==='store') throw new InputError('Forbidden',403);
     const state=repo.read?await repo.read(req.tenantId):await repo.transact(req.tenantId,s=>s);
     res.json({rules:state.rules||[]});
   }));
   app.put('/api/rules/:id',wrap(async(req:any,res:any)=>{
+    if(req.principal.role!=='superadmin') throw new InputError('Super Admin access required',403);
     let rule;
     try {rule=validateRule({...req.body,id:req.params.id});}
     catch(e:any){throw new InputError(e.message,400);}
@@ -94,10 +131,12 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     res.json({rule});
   }));
   app.delete('/api/rules/:id',wrap(async(req:any,res:any)=>{
+    if(req.principal.role!=='superadmin') throw new InputError('Super Admin access required',403);
     await repo.transact(req.tenantId,s=>{s.rules=(s.rules||[]).filter(r=>r.id!==req.params.id);});
     res.json({ok:true});
   }));
   app.post('/api/rules/preview',wrap(async(req:any,res:any)=>{
+    if(req.principal.role!=='superadmin') throw new InputError('Super Admin access required',403);
     if(JSON.stringify(req.body||{}).length>30000)throw new InputError('Preview too large',413);
     try {
       const fields=normalize(req.body.payload||{},req.body.overrides||{});
@@ -107,8 +146,8 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   }));
   app.get('/api/console',wrap(async(req:any,res:any)=>{
     const state=repo.read ? await repo.read(req.tenantId) : await repo.transact(req.tenantId,s=>s);
-    res.json({state,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',
-      profiles:profiles.filter(p=>p.tenantId===req.tenantId).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
+    res.json({state:visibleState(state,req.principal),role:req.principal.role,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',
+      profiles:(req.principal.role==='store'?[]:profiles.filter(p=>p.tenantId===req.tenantId)).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
         credentialsConfigured:!!(p.clientId&&p.clientSecret),
         urls:{registration:`${base(p)}/registration`,orders:`${base(p)}/orders`,status:`${base(p)}/status`,picking:`${base(p)}/picking`}})),
       capabilities:{vocovo:'Awaiting provider API contract',pickingWrites:'Disabled: Quest coexistence not verified',reporting:'Requires separate Deliverect provisioning'},
@@ -116,6 +155,7 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   }));
   app.post('/api/profiles/:id/channels/sync',wrap(async(req:any,res:any)=>{
     const p=profiles.find(p=>p.id===req.params.id&&p.tenantId===req.tenantId);
+    if(req.principal.role!=='superadmin') throw new InputError('Super Admin access required',403);
     if(!p) throw new InputError('Unknown profile',404);
     if(!p.clientId||!p.clientSecret) throw new InputError('Configure Deliverect client credentials on the server',409);
     const root=p.environment==='staging'?'https://api.staging.deliverect.com':'https://api.deliverect.com';
