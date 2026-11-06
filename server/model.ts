@@ -17,7 +17,7 @@ export type Event = { id: string; kind: string; at: string; orderId?: string; lo
 export type Alert = { id: string; locationId: string; orderId: string; message: string; createdAt: string;
   expiresAt: string; mappingId: string; provider: string; status: 'screen_available' | 'blocked' | 'suppressed'; reason?: string };
 export type PendingEvent = { id: string; profileId: string; kind: string; receivedAt: string; body: Record<string, string | number> };
-export type MappingRule = { id: string; name: string; enabled: boolean; channelName: string; event: string; destination: 'kds' | 'vocovo' | 'webhook'; template: string; updatedAt: string }; 
+export type MappingRule = { id: string; name: string; enabled: boolean; channelName: string; event: string; destination: 'kds' | 'vocovo' | 'webhook'; template: string; overrides?: Record<string,string>; updatedAt: string }; 
 export type State = { rules?: MappingRule[]; pendingEvents?: PendingEvent[]; mappings: Mapping[]; orders: Order[]; events: Event[]; alerts: Alert[];
   channels: { channelId: string | number; name: string }[]; channelsSyncedAt?: string;
   lastFeedAt?: string; lastSweepAt?: string };
