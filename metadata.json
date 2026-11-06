@@ -1,6 +1,6 @@
 {
-  "name": "Store Alerts — Deliverect x VoCoVo Middleware",
-  "description": "Multi-tenant retail order routing, store state management, and real-time VoCoVo headset alerting powered by Deliverect.",
+  "name": "Store Alerts",
+  "description": "Connect stores and manage order alerts.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -7,7 +7,10 @@ const key = (v: string) => createHash('sha256').update(v).digest('hex');
 // Local development only. Firestore is required for Cloud Run/multiple instances.
 export class FileRepository implements Repository {
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private directory: string) {}
+  private directory: string;
+  constructor(directory: string) {
+    this.directory = directory;
+  }
   transact<T>(tenant: string, fn: (state: State) => T): Promise<T> {
     const run = this.queue.then(async () => {
       await mkdir(this.directory, {recursive: true});

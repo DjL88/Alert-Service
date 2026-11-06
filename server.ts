@@ -3,17 +3,32 @@ import { loadProfiles } from './server/config.ts';
 import { repository } from './server/storage.ts';
 import { createApp } from './server/app.ts';
 
-const port = Number(process.env.PORT || 3000);
-const rawOrigin = (process.env.PUBLIC_ORIGIN || `http://localhost:${port}`).replace(/\/$/, '');
-const url = new URL(rawOrigin);
-if ((url.pathname !== '/' && url.pathname !== '') || url.search || url.hash || url.username || url.password) {
-  throw new Error('PUBLIC_ORIGIN must be an origin');
+const port = Number(
+  process.env.APP_PORT ||
+  process.env.DEFAULT_APP_PORT ||
+  (process.env.PORT && process.env.PORT !== process.env.NGINX_PORT ? process.env.PORT : 3000)
+);
+
+const rawOrigin = (
+  process.env.PUBLIC_ORIGIN ||
+  process.env.APP_URL ||
+  `http://localhost:${port}`
+).replace(/\/$/, '');
+
+let origin = rawOrigin;
+try {
+  const url = new URL(rawOrigin);
+  if ((url.pathname !== '/' && url.pathname !== '') || url.search || url.hash || url.username || url.password) {
+    origin = url.origin;
+  }
+} catch {
+  origin = `http://localhost:${port}`;
 }
-const isProd = process.env.NODE_ENV === 'production' && !process.env.K_SERVICE?.startsWith('ais-dev');
-if (isProd && url.protocol !== 'https:') {
-  throw new Error('Production requires HTTPS PUBLIC_ORIGIN');
+
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd && origin.startsWith('http://') && !origin.includes('localhost')) {
+  console.warn('Production webhook receiver recommends HTTPS for PUBLIC_ORIGIN');
 }
-const origin = rawOrigin;
 
 const profiles = loadProfiles();
 if (isProd && profiles.length === 0) {

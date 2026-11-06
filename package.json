@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "server": "node --import tsx server.ts",
-    "start": "node --import tsx server.ts",
+    "server": "node server.ts",
+    "start": "node server.ts",
     "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {

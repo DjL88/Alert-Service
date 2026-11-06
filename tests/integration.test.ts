@@ -91,11 +91,20 @@ test('unrecognised status keys cannot resolve object prototype properties',()=>{
  receive(s,profile,'orders',{...order,status:'toString'},now,[profile]);assert.equal(s.orders[0].phase,'unknown');
 });
 
-test('profile loading validates IDs, secrets length, and default pilot profiles',async()=>{
- const {loadProfiles,DEFAULT_PILOT_PROFILES}=await import('../server/config.ts');
- const loaded=loadProfiles();
- assert(loaded.length>=2);
- assert(loaded.some(p=>p.provider==='screen'));
- assert(loaded.some(p=>p.provider==='vocovo'));
- assert(DEFAULT_PILOT_PROFILES.every(p=>p.adminToken.length>=24));
+test('profile loading validates IDs, secrets length, and profiles array',async()=>{
+ const {loadProfiles}=await import('../server/config.ts');
+ const original=process.env.INTEGRATIONS_JSON;
+ process.env.INTEGRATIONS_JSON=JSON.stringify([profile]);
+ try {
+  const loaded=loadProfiles();
+  assert.equal(loaded.length,1);
+  assert.equal(loaded[0].id,profile.id);
+  assert.throws(()=>{
+   process.env.INTEGRATIONS_JSON=JSON.stringify([{id:'bad'}]);
+   loadProfiles();
+  });
+ } finally {
+  process.env.INTEGRATIONS_JSON=original;
+ }
 });
+

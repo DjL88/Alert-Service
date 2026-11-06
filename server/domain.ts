@@ -1,7 +1,13 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import type {Alert, Profile, State, OrderPhase} from './model.ts';
 import { channelIdentity } from '../shared/channels.ts';
-export class InputError extends Error { constructor(message: string, public status = 400) {super(message);} }
+export class InputError extends Error {
+  public status: number;
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
 export const hash = (v: string) => createHash('sha256').update(v).digest('hex');
 export function sameSecret(a: string, b: string) {
   return timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
