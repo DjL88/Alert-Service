@@ -12,7 +12,7 @@ type Profile = {
   credentialsConfigured:boolean;
   urls:Record<string,string>;
 };
-type ConsoleData = {state:State; profiles:Profile[]; storage:string};
+type ConsoleData = {state:State; profiles:Profile[]; storage:string; role:'superadmin'|'tenantadmin'|'store'};
 type View = 'orders'|'stores'|'channels'|'activity'|'mappings';
 
 const card = 'rounded-xl border border-slate-200 bg-white';
@@ -145,7 +145,7 @@ export function IntegrationConsole() {
   const tabs:{id:View;label:string}[]=[
     {id:'orders',label:'Orders'},{id:'stores',label:'Stores'},
     {id:'channels',label:'Channels'},{id:'mappings',label:'Mappings'},{id:'activity',label:'Activity'}
-  ];
+  ].filter(tab=>data?.role!=='store'||tab.id==='orders').filter(tab=>data?.role==='superadmin'||tab.id!=='mappings');
 
   return (
     <div className="space-y-6">
@@ -174,7 +174,7 @@ export function IntegrationConsole() {
       </div>}
       {message && <p role="status" className="flex items-center gap-2 text-sm text-emerald-800"><Check size={16}/>{message}</p>}
 
-      {settingsOpen && <section className={card+' p-5 space-y-5'}>
+      {settingsOpen && data?.role!=='store' && <section className={card+' p-5 space-y-5'}>
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-semibold">Settings</h2>
           <button onClick={signOut} className="text-sm text-slate-600 underline">Sign out</button>
@@ -282,7 +282,7 @@ export function IntegrationConsole() {
           </div>}
       </section>}
 
-      {view==='mappings'&&<MappingEditor token={token}/>}
+      {view==='mappings'&&data?.role==='superadmin'&&<MappingEditor token={token}/>}
       {view==='activity'&&<div className="grid gap-4 lg:grid-cols-2">
         <section className={card}>
           <div className="border-b border-slate-100 p-5"><h2 className="font-semibold">Recent activity</h2></div>
