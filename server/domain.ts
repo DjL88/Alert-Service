@@ -33,6 +33,8 @@ export function trimState(s: State) {
 }
 export function register(s: State, p: Profile, body: any, now: string) {
   if (body.account && body.account !== p.accountId) throw new InputError('Account mismatch', 403);
+  if(s.accountId && s.accountId!==p.accountId) throw new InputError('Tenant already belongs to another Deliverect account',409);
+  s.accountId=p.accountId;
   const link = field(body.channelLinkId, 'channelLinkId');
   const location = field(body.locationId, 'locationId');
   const states: Record<string, 'registered' | 'active' | 'inactive'> = {register:'registered', active:'active', inactive:'inactive'};
@@ -42,6 +44,11 @@ export function register(s: State, p: Profile, body: any, now: string) {
   if (existing && existing.locationId !== location) throw new InputError('Registration cannot move an existing connection to another store', 409);
   const external = body.channelLocationId === undefined && existing ? existing.externalLocationId : field(body.channelLocationId, 'channelLocationId');
   if (s.mappings.some(m => m.id !== existing?.id && m.profileId === p.id && (m.locationId === location || m.externalLocationId === external))) throw new InputError('Duplicate store/destination mapping', 409);
+  s.locations ||= [];
+  const locationName=typeof body.channelLinkName==='string'?body.channelLinkName.slice(0,180):location;
+  const canonical=s.locations.find(l=>l.id===location);
+  if(canonical) {canonical.updatedAt=now;if(locationName!==location)canonical.name=locationName;}
+  else s.locations.push({id:location,accountId:p.accountId,name:locationName,registeredAt:now,updatedAt:now});
   const mapping = {id: hash(`${p.id}:${link}`), profileId:p.id, channelLinkId:link, locationId:location,
     externalLocationId:external, name: typeof body.channelLinkName === 'string' ? body.channelLinkName.slice(0,180) : location,
     // Re-registration refreshes metadata without re-enabling a disabled link.
@@ -62,14 +69,15 @@ function phaseFor(p: Profile, body: any, kind: string): {phase:OrderPhase; raw:s
   return {phase:Object.hasOwn(statuses,raw) ? statuses[raw] : 'unknown',raw};
 }
 function addAlert(s: State, locationId: string, orderId: string, message: string, now: string, suffix: string) {
-  for (const m of s.mappings.filter(m => m.locationId === locationId && m.state === 'active')) {
-    const id = hash(`${m.id}:${orderId}:${suffix}`);
-    if (s.alerts.some(a=>a.id===id)) continue;
-    const a: Alert = {id, locationId,orderId,message,createdAt:now,expiresAt:new Date(Date.parse(now)+120_000).toISOString(),mappingId:m.id,provider:m.provider,
-      status:m.provider === 'screen' ? 'screen_available' : 'blocked'};
-    if (m.provider !== 'screen') a.reason='VoCoVo API contract and credentials required; no delivery attempted';
-    s.alerts.push(a);
-  }
+  // One canonical KDS alert per store/order/event. Channel registrations are routing metadata,
+  // not additional orders or duplicate local notifications.
+  if(!s.mappings.some(m=>m.locationId===locationId&&m.state==='active'))return;
+  const id=hash(`store:${locationId}:${orderId}:${suffix}`);
+  if(s.alerts.some(a=>a.id===id))return;
+  const a:Alert={id,locationId,orderId,message,createdAt:now,
+    expiresAt:new Date(Date.parse(now)+120_000).toISOString(),mappingId:'store:'+locationId,
+    provider:'screen',status:'screen_available'};
+  s.alerts.push(a);
 }
 export function ingest(s: State, p: Profile, kind: string, body: any, now: string) {
   if (body.account && body.account !== p.accountId) throw new InputError('Account mismatch',403);
