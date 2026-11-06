@@ -140,6 +140,7 @@ export function IntegrationConsole() {
   const alerts=state?.alerts || [];
   const events=state?.events || [];
   const stores=[...new Set([...mappings.map(m=>m.locationId),...orders.map(o=>o.locationId)])];
+  const storeRows=stores.map(id=>({id,connections:mappings.filter(m=>m.locationId===id),name:mappings.find(m=>m.locationId===id)?.name||id}));
   const visibleOrders=orders.filter(o=>(!store||o.locationId===store)&&!['completed','cancelled'].includes(o.phase))
     .sort((a,b)=>Date.parse(b.receivedAt)-Date.parse(a.receivedAt));
   const waiting=orders.filter(o=>o.phase==='waiting').length;
@@ -262,13 +263,14 @@ export function IntegrationConsole() {
 
       {view==='stores'&&<section className={card}>
         <div className="border-b border-slate-100 p-5"><h2 className="font-semibold">Stores</h2></div>
-        {!mappings.length?<p className="p-8 text-center text-sm text-slate-500">No stores connected yet.</p>:
+        {!storeRows.length?<p className="p-8 text-center text-sm text-slate-500">No stores connected yet.</p>:
           <div className="divide-y divide-slate-100">
-            {mappings.map(m=><div key={m.id} className="flex flex-wrap justify-between items-center gap-3 px-5 py-4">
-              <div><p className="font-medium">{m.name||m.locationId}</p><p className="mt-1 text-xs text-slate-500">{m.locationId}</p></div>
-              <span className={'text-xs font-medium '+(m.state==='active'?'text-emerald-700':'text-slate-500')}>
-                {m.state==='active'?'Connected':m.state==='registered'?'Registered':'Inactive'}
-              </span>
+            {storeRows.map(row=><div key={row.id} className="flex flex-wrap justify-between items-center gap-3 px-5 py-4">
+              <div><p className="font-medium">{row.name}</p><p className="mt-1 text-xs text-slate-500">{row.id} · {row.connections.length} channel connection{row.connections.length===1?'':'s'}</p></div>
+              <div className="flex flex-wrap items-center gap-2">
+                {row.connections.map(m=><span key={m.id} title={m.channelLinkId} className={'rounded-full px-2.5 py-1 text-xs font-medium '+(m.state==='active'?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-600')}>{m.provider==='vocovo'?'VoCoVo':m.provider==='screen'?'KDS':m.provider} · {m.state==='active'?'Connected':m.state==='registered'?'Registered':'Inactive'}</span>)}
+                {!row.connections.length&&<span className="text-xs text-slate-500">No channel connections</span>}
+              </div>
             </div>)}
           </div>}
       </section>}
