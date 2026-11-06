@@ -1,5 +1,6 @@
 import express from 'express';
 import {randomUUID} from 'node:crypto';
+import {normalize,render,validateRule,matches} from './mapping.ts';
 import {resolve} from 'node:path';
 import type {Profile} from './model.ts';
 import type {Repository} from './storage.ts';
@@ -75,6 +76,34 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
       s.channels = fresh.channels;
     });
     res.json({ ok: true });
+  }));
+  app.get('/api/rules',wrap(async(req:any,res:any)=>{
+    const state=repo.read?await repo.read(req.tenantId):await repo.transact(req.tenantId,s=>s);
+    res.json({rules:state.rules||[]});
+  }));
+  app.put('/api/rules/:id',wrap(async(req:any,res:any)=>{
+    let rule;
+    try {rule=validateRule({...req.body,id:req.params.id});}
+    catch(e:any){throw new InputError(e.message,400);}
+    await repo.transact(req.tenantId,s=>{
+      s.rules ||= [];
+      const index=s.rules.findIndex(r=>r.id===rule.id);
+      if(index<0&&s.rules.length>=50) throw new InputError('Rule limit reached',409);
+      if(index>=0)s.rules[index]=rule;else s.rules.push(rule);
+    });
+    res.json({rule});
+  }));
+  app.delete('/api/rules/:id',wrap(async(req:any,res:any)=>{
+    await repo.transact(req.tenantId,s=>{s.rules=(s.rules||[]).filter(r=>r.id!==req.params.id);});
+    res.json({ok:true});
+  }));
+  app.post('/api/rules/preview',wrap(async(req:any,res:any)=>{
+    if(JSON.stringify(req.body||{}).length>30000)throw new InputError('Preview too large',413);
+    try {
+      const fields=normalize(req.body.payload||{},req.body.overrides||{});
+      const rule=validateRule({...req.body.rule,enabled:true});
+      res.json({fields,matched:matches(rule,fields,String(req.body.kind||'orders')),output:render(rule.template,fields)});
+    }catch(e:any){throw new InputError(e.message,400);}
   }));
   app.get('/api/console',wrap(async(req:any,res:any)=>{
     const state=repo.read ? await repo.read(req.tenantId) : await repo.transact(req.tenantId,s=>s);
