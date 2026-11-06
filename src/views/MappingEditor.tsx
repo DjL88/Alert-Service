@@ -1,0 +1,35 @@
+import React,{useEffect,useState} from 'react';
+type Rule={id:string;name:string;enabled:boolean;channelName:string;event:string;destination:'kds'|'vocovo'|'webhook';template:string};
+const initial:Rule={id:'',name:'New order',enabled:false,channelName:'',event:'orders',destination:'vocovo',template:'{"message":"New {{channelName}} order {{orderID}}","items":"{{itemCount}}"}'};
+const input='w-full rounded-lg border border-slate-300 bg-white p-2 text-sm';
+export function MappingEditor({token}:{token:string}) {
+ const [rules,setRules]=useState<Rule[]>([]),[rule,setRule]=useState<Rule>(initial);
+ const [sample,setSample]=useState('{"orderId":"123","channelName":"Just Eat","items":[{},{}],"locationId":"store-1"}');
+ const [overrides,setOverrides]=useState('{}'),[kind,setKind]=useState('orders'),[result,setResult]=useState(''),[error,setError]=useState('');
+ const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+ async function load(){const r=await fetch('/api/rules',{headers});if(!r.ok)throw Error('Could not load rules');setRules((await r.json()).rules);}
+ useEffect(()=>{void load().catch(e=>setError(e.message));},[token]);
+ const edit=(patch:Partial<Rule>)=>setRule(r=>({...r,...patch}));
+ async function save(){try{setError('');const id=rule.id||crypto.randomUUID();const r=await fetch('/api/rules/'+encodeURIComponent(id),{method:'PUT',headers,body:JSON.stringify({...rule,id})});const body=await r.json();if(!r.ok)throw Error(body.error);setRule(body.rule);await load();setResult('Rule saved.');}catch(e:any){setError(e.message);}}
+ async function preview(){try{setError('');const r=await fetch('/api/rules/preview',{method:'POST',headers,body:JSON.stringify({rule,payload:JSON.parse(sample),overrides:JSON.parse(overrides),kind})});const body=await r.json();if(!r.ok)throw Error(body.error);setResult(JSON.stringify(body,null,2));}catch(e:any){setError(e.message);}}
+ async function remove(){if(!rule.id)return;try{const r=await fetch('/api/rules/'+encodeURIComponent(rule.id),{method:'DELETE',headers});if(!r.ok)throw Error('Delete failed');setRule(initial);await load();setResult('Rule deleted.');}catch(e:any){setError(e.message);}}
+ return <div className="space-y-5">
+ <div><h2 className="text-xl font-semibold">Event mappings</h2><p className="mt-1 text-sm text-slate-500">Match incoming events and shape the JSON for each destination. Rules are saved per tenant. Sending to external providers is not enabled yet.</p></div>
+ <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+ <aside className="rounded-xl border border-slate-200 bg-white p-3"><button onClick={()=>{setRule(initial);setResult('');}} className="w-full rounded-lg bg-[#063d30] p-2 text-sm text-white">New mapping</button><div className="mt-3 space-y-1">{rules.map(r=><button key={r.id} onClick={()=>{setRule(r);setResult('');}} className={'block w-full rounded-lg p-3 text-left text-sm '+(rule.id===r.id?'bg-emerald-50':'hover:bg-slate-50')}><span className="font-medium">{r.name}</span><span className="block text-xs text-slate-500">{r.destination} · {r.enabled?'Enabled':'Disabled'}</span></button>)}</div></aside>
+ <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+ <label className="block text-sm font-medium">Rule name<input className={input+' mt-1'} value={rule.name} onChange={e=>edit({name:e.target.value})}/></label>
+ <div className="grid gap-3 sm:grid-cols-3">
+ <label className="text-sm font-medium">Channel name<input className={input+' mt-1'} placeholder="Any channel" value={rule.channelName} onChange={e=>edit({channelName:e.target.value})}/></label>
+ <label className="text-sm font-medium">Event<input className={input+' mt-1'} placeholder="orders" value={rule.event} onChange={e=>edit({event:e.target.value})}/></label>
+ <label className="text-sm font-medium">Destination<select className={input+' mt-1'} value={rule.destination} onChange={e=>edit({destination:e.target.value as Rule['destination']})}><option value="vocovo">VoCoVo</option><option value="kds">KDS</option><option value="webhook">Other API</option></select></label>
+ </div>
+ <label className="block text-sm font-medium">Outgoing JSON<textarea className={input+' mt-1 font-mono'} rows={7} value={rule.template} onChange={e=>edit({template:e.target.value})}/></label>
+ <p className="text-xs text-slate-500">Available fields: orderID, orderDisplayID, channelName, channelID, itemCount, storeID, status, courierArrivedAtPickup, timestamp. Use {"{{orderID}}"} in JSON values. The exact field placeholder preserves numbers and nulls.</p>
+ <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={rule.enabled} onChange={e=>edit({enabled:e.target.checked})}/>Enabled (configuration only)</label>
+ <div className="flex flex-wrap gap-2"><button onClick={save} className="rounded-lg bg-[#063d30] px-4 py-2 text-sm text-white">Save mapping</button><button onClick={preview} className="rounded-lg border px-4 py-2 text-sm">Preview JSON</button>{rule.id&&<button onClick={remove} className="rounded-lg border px-4 py-2 text-sm text-rose-700">Delete</button>}</div>
+ <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">Test with incoming Deliverect JSON</summary><div className="mt-3 space-y-3"><label className="block text-sm">Event type<input className={input+' mt-1'} value={kind} onChange={e=>setKind(e.target.value)}/></label><label className="block text-sm">Sample payload<textarea className={input+' mt-1 font-mono'} rows={6} value={sample} onChange={e=>setSample(e.target.value)}/></label><label className="block text-sm">Field path overrides (JSON object)<textarea className={input+' mt-1 font-mono'} rows={3} value={overrides} onChange={e=>setOverrides(e.target.value)}/></label></div></details>
+ {error&&<p role="alert" className="text-sm text-rose-700">{error}</p>}
+ {result&&<pre className="overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 text-xs">{result}</pre>}
+ </section></div></div>;
+}
