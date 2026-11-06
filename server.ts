@@ -42,7 +42,7 @@ try {
   throw error;
 }
 const schedulerToken = process.env.SCHEDULER_TOKEN || '';
-const app = createApp(repo, profiles, origin, schedulerToken);
+const app = createApp(repo, profiles, origin, schedulerToken, { serveStatic: isProd });
 
 if (process.env.NODE_ENV === 'production') {
   app.listen(port, '0.0.0.0', () => {

@@ -8,4 +8,4 @@ const isProd = process.env.NODE_ENV === 'production' && !process.env.K_SERVICE?.
 if (isProd && url.protocol !== 'https:') throw new Error('Production requires HTTPS PUBLIC_ORIGIN');
 const profiles=loadProfiles();
 const repo=await repository();
-createApp(repo,profiles,origin,process.env.SCHEDULER_TOKEN||'').listen(Number(process.env.PORT||8080),'0.0.0.0',()=>console.log(`Alert Service started with ${profiles.length} integration profiles`));
+createApp(repo,profiles,origin,process.env.SCHEDULER_TOKEN||'',{serveStatic:true}).listen(Number(process.env.PORT||8080),'0.0.0.0',()=>console.log(`Alert Service started with ${profiles.length} integration profiles`));

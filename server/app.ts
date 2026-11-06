@@ -1,10 +1,11 @@
 import express from 'express';
 import {randomUUID} from 'node:crypto';
+import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import type {Profile} from './model.ts';
 import type {Repository} from './storage.ts';
 import {InputError, sameSecret, validSignature, register, receive, sweep} from './domain.ts';
-export function createApp(repo: Repository, profiles: Profile[], origin: string, schedulerToken: string) {
+export function createApp(repo: Repository, profiles: Profile[], origin: string, schedulerToken: string, options: { serveStatic?: boolean } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');next();});
@@ -102,8 +103,20 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     res.json({count:data.length});
   }));
   app.use('/api',(_req,res)=>res.status(404).json({error:'Unknown API endpoint'}));
-  app.use(express.static(resolve('dist')));
-  app.get('*',(_req,res)=>res.sendFile(resolve('dist/index.html')));
+  if (options.serveStatic) {
+    const distDir = resolve('dist');
+    const indexHtml = resolve(distDir, 'index.html');
+    if (existsSync(distDir)) {
+      app.use(express.static(distDir));
+    }
+    app.get('*', (_req, res) => {
+      if (existsSync(indexHtml)) {
+        res.sendFile(indexHtml);
+      } else {
+        res.status(404).json({ error: 'Production assets not built yet. Run npm run build.' });
+      }
+    });
+  }
   app.use((err:any,_req:any,res:any,_next:any)=>{
     const status=err instanceof InputError?err.status:err.type==='entity.too.large'?413:500;
     if (status===500) {
