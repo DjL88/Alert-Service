@@ -41,7 +41,10 @@ export function register(s: State, p: Profile, body: any, now: string) {
   const existing = s.mappings.find(m => m.profileId === p.id && m.channelLinkId === link);
   if (existing && existing.locationId !== location) throw new InputError('Registration cannot move an existing connection to another store', 409);
   const external = body.channelLocationId === undefined && existing ? existing.externalLocationId : field(body.channelLocationId, 'channelLocationId');
-  if (s.mappings.some(m => m.id !== existing?.id && m.profileId === p.id && (m.locationId === location || m.externalLocationId === external))) throw new InputError('Duplicate store/destination mapping', 409);
+  // Multiple channel links may legitimately connect to the same canonical location.
+  // Reject only an external destination collision within a profile: one external ID
+  // must not silently point at two different channel links.
+  if (s.mappings.some(m => m.id !== existing?.id && m.profileId === p.id && m.externalLocationId === external)) throw new InputError('Duplicate external destination mapping', 409);
   const mapping = {id: hash(`${p.id}:${link}`), profileId:p.id, channelLinkId:link, locationId:location,
     externalLocationId:external, name: typeof body.channelLinkName === 'string' ? body.channelLinkName.slice(0,180) : location,
     // Re-registration refreshes metadata without re-enabling a disabled link.
