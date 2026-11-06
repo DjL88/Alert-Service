@@ -35,6 +35,8 @@ const alertName:Record<string,string> = {
 
 export function IntegrationConsole() {
   const [token,setToken] = useState('');
+  const [tenantInput,setTenantInput]=useState('');
+  const [tenant,setTenant]=useState('');
   const [input,setInput] = useState('');
   const [data,setData] = useState<ConsoleData|null>(null);
   const [view,setView] = useState<View>('orders');
@@ -55,7 +57,7 @@ export function IntegrationConsole() {
     const id = ++requestId.current;
     if (!quiet) setLoading(true);
     try {
-      const response = await fetch('/api/console',{headers:{Authorization:'Bearer '+auth},cache:'no-store'});
+      const response = await fetch('/api/console',{headers:{Authorization:'Bearer '+auth,...(tenant?{'X-Tenant-ID':tenant}:{})},cache:'no-store'});
       const body = await response.json().catch(()=>null);
       if (!response.ok) {
         if (response.status===401) throw new Error('Access denied. Check your access token.');
@@ -74,7 +76,7 @@ export function IntegrationConsole() {
     } finally {
       if (id===requestId.current) setLoading(false);
     }
-  },[]);
+  },[tenant]);
 
   useEffect(()=>{
     if (!token) return;
@@ -90,7 +92,7 @@ export function IntegrationConsole() {
     setError('');
     try {
       const response=await fetch('/api/profiles/'+encodeURIComponent(profile.id)+'/channels/sync',{
-        method:'POST',headers:{Authorization:'Bearer '+token}
+        method:'POST',headers:{Authorization:'Bearer '+token,...(tenant?{'X-Tenant-ID':tenant}:{})}
       });
       const body=await response.json().catch(()=>null);
       if (!response.ok) throw new Error(body?.error || 'Could not update channels.');
@@ -108,6 +110,7 @@ export function IntegrationConsole() {
   function signOut() {
     requestId.current++;
     setToken('');
+    setTenant('');
     setInput('');
     setData(null);
     setError('');
@@ -120,11 +123,13 @@ export function IntegrationConsole() {
       <div className={card+' p-7'}>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome to Store Alerts</h1>
         <p className="mt-2 text-sm text-slate-600">Enter your access token to see connected stores and orders.</p>
-        <form className="mt-7 space-y-4" onSubmit={e=>{e.preventDefault();setError('');setToken(input.trim());setInput('');}}>
+        <form className="mt-7 space-y-4" onSubmit={e=>{e.preventDefault();setError('');setTenant(tenantInput.trim());setToken(input.trim());setInput('');}}>
           <label className="block text-sm font-medium" htmlFor="access-token">Access token</label>
           <input id="access-token" type="password" autoComplete="off" required value={input}
             onChange={e=>setInput(e.target.value)} placeholder="Enter access token"
             className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"/>
+          <label className="block text-sm font-medium" htmlFor="tenant-id">Tenant ID (Super Admin only)</label>
+          <input id="tenant-id" value={tenantInput} onChange={e=>setTenantInput(e.target.value)} placeholder="Optional for tenant/store login" className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm"/>
           <button type="submit" className="w-full rounded-lg bg-[#063d30] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0b5340]">Continue</button>
         </form>
       </div>
@@ -282,7 +287,7 @@ export function IntegrationConsole() {
           </div>}
       </section>}
 
-      {view==='mappings'&&data?.role==='superadmin'&&<MappingEditor token={token}/>}
+      {view==='mappings'&&data?.role==='superadmin'&&<MappingEditor token={token} tenant={tenant}/>}
       {view==='activity'&&<div className="grid gap-4 lg:grid-cols-2">
         <section className={card}>
           <div className="border-b border-slate-100 p-5"><h2 className="font-semibold">Recent activity</h2></div>
