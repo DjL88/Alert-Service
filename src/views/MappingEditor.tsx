@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 type Rule={id:string;name:string;enabled:boolean;channelName:string;event:string;destination:'kds'|'vocovo'|'webhook';template:string;overrides?:Record<string,string>};
-const initial:Rule={id:'',name:'New order',enabled:false,channelName:'',event:'orders',destination:'vocovo',overrides:{},template:'{"message':"New {{channelName}} order {{orderID}}","items":"{{itemCount}}"}'};
+const initial:Rule={id:'',name:'New order',enabled:false,channelName:'',event:'orders',destination:'vocovo',overrides:{},template:JSON.stringify({message:'New {{channelName}} order {{orderID}}',items:'{{itemCount}}'},null,2)};
 const input='w-full rounded-lg border border-slate-300 bg-white p-2 text-sm';
 export function MappingEditor({token,tenant}:{token:string;tenant:string}) {
  const [rules,setRules]=useState<Rule[]>([]),[rule,setRule]=useState<Rule>(initial);
