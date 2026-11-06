@@ -12,7 +12,6 @@ export default defineConfig(() => {
       },
     },
     server: {
-      proxy: { '/api': 'http://localhost:8080', '/webhooks': 'http://localhost:8080' },
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
