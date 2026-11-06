@@ -43,6 +43,6 @@ export async function repository(): Promise<Repository> {
     })};
   }
   const isProd = process.env.NODE_ENV === 'production' && !process.env.K_SERVICE?.startsWith('ais-dev');
-  if (isProd) throw new Error('Production requires STORAGE_DRIVER=firestore');
+  if (isProd) throw new Error('Production storage is not configured. Set STORAGE_DRIVER=firestore and grant Firestore access to the service account.');
   return new FileRepository(process.env.DATA_DIR || '.data');
 }
