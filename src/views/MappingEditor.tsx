@@ -2,11 +2,11 @@ import React,{useEffect,useState} from 'react';
 type Rule={id:string;name:string;enabled:boolean;channelName:string;event:string;destination:'kds'|'vocovo'|'webhook';template:string;overrides?:Record<string,string>};
 const initial:Rule={id:'',name:'New order',enabled:false,channelName:'',event:'orders',destination:'vocovo',overrides:{},template:'{"message':"New {{channelName}} order {{orderID}}","items":"{{itemCount}}"}'};
 const input='w-full rounded-lg border border-slate-300 bg-white p-2 text-sm';
-export function MappingEditor({token}:{token:string}) {
+export function MappingEditor({token,tenant}:{token:string;tenant:string}) {
  const [rules,setRules]=useState<Rule[]>([]),[rule,setRule]=useState<Rule>(initial);
  const [sample,setSample]=useState('{"orderId":"123","channelName":"Just Eat","items":[{},{}],"locationId":"store-1"}');
  const [overrides,setOverrides]=useState('{}'),[kind,setKind]=useState('orders'),[result,setResult]=useState(''),[error,setError]=useState('');
- const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+ const headers={Authorization:'Bearer '+token,'Content-Type':'application/json',...(tenant?{'X-Tenant-ID':tenant}:{})};
  async function load(){const r=await fetch('/api/rules',{headers});if(!r.ok)throw Error('Could not load rules');setRules((await r.json()).rules);}
  useEffect(()=>{void load().catch(e=>setError(e.message));},[token]);
  const edit=(patch:Partial<Rule>)=>setRule(r=>({...r,...patch}));
