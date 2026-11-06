@@ -121,13 +121,15 @@ export function receive(s: State, p: Profile, kind: string, body: any, now: stri
     if(s.pendingEvents.some(e=>e.id===id)) return {result:'duplicate'};
     const minimal:Record<string,string|number>={orderId,status:raw,timeStamp:at};
     if(body.location || body.locationId) minimal.location=field(body.location ?? body.locationId,'location');
+    // An order ID is not a tenant-wide location identifier. Never replay an
+    // unscoped early callback against an unrelated store's matching order ID.
     s.pendingEvents.push({id,profileId:p.id,kind,receivedAt:now,body:minimal});
     s.events.push({id,kind,at:now,profileId:p.id,orderId,result:'awaiting_order'});
     trimState(s);return {result:'awaiting_order'};
   }
   const result=ingest(s,p,kind,body,now);
   if(kind==='orders') {
-    const matches=s.pendingEvents.filter(e=>e.body.orderId===orderId).sort((a,b)=>String(a.body.timeStamp).localeCompare(String(b.body.timeStamp)));
+    const matches=s.pendingEvents.filter(e=>e.body.orderId===orderId && e.body.location===body.location).sort((a,b)=>String(a.body.timeStamp).localeCompare(String(b.body.timeStamp)));
     for(const event of matches) {
       const owner=profiles.find(candidate=>candidate.id===event.profileId && candidate.tenantId===p.tenantId);
       if(!owner) continue;
