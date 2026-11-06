@@ -53,9 +53,11 @@ export function validateRule(input:any):MappingRule {
   const name=String(input.name||'').trim(),channelName=String(input.channelName||'').trim(),event=String(input.event||'').trim();
   if(!name||name.length>100||channelName.length>120||event.length>80) throw new Error('Invalid rule name or filter');
   if(!['kds','vocovo','webhook'].includes(input.destination)) throw new Error('Invalid destination');
+  const overrides=input.overrides||{};
+  if(!overrides||typeof overrides!=='object'||Array.isArray(overrides)||Object.keys(overrides).length>30||Object.entries(overrides).some(([key,value])=>!Object.hasOwn(fieldPaths,key)||typeof value!=='string'||!/^[a-zA-Z][a-zA-Z0-9_.]{0,100}$/.test(value))) throw new Error('Invalid field mapping');
   const template=String(input.template||'');
   render(template,{});
-  return {id:String(input.id||''),name,enabled:input.enabled===true,channelName,event,destination:input.destination,template,updatedAt:new Date().toISOString()};
+  return {id:String(input.id||''),name,enabled:input.enabled===true,channelName,event,destination:input.destination,template,overrides,updatedAt:new Date().toISOString()};
 }
 export function matches(rule:MappingRule,fields:Record<string,unknown>,kind:string) {
   return rule.enabled&&(!rule.event||rule.event.toLowerCase()===kind.toLowerCase())&&(!rule.channelName||rule.channelName.toLowerCase()===String(fields.channelName??'').toLowerCase());
