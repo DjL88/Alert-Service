@@ -1,3 +1,4 @@
+import {MappingEditor} from './MappingEditor';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {AlertCircle, Check, Copy, RefreshCw, Settings2} from 'lucide-react';
 import {channelIdentity} from '../../shared/channels';
@@ -12,7 +13,7 @@ type Profile = {
   urls:Record<string,string>;
 };
 type ConsoleData = {state:State; profiles:Profile[]; storage:string};
-type View = 'orders'|'stores'|'channels'|'activity';
+type View = 'orders'|'stores'|'channels'|'activity'|'mappings';
 
 const card = 'rounded-xl border border-slate-200 bg-white';
 const formatTime = (value?:string) => {
@@ -143,7 +144,7 @@ export function IntegrationConsole() {
   const activeAlerts=alerts.filter(a=>a.status!=='suppressed'&&Date.parse(a.expiresAt)>Date.now()).length;
   const tabs:{id:View;label:string}[]=[
     {id:'orders',label:'Orders'},{id:'stores',label:'Stores'},
-    {id:'channels',label:'Channels'},{id:'activity',label:'Activity'}
+    {id:'channels',label:'Channels'},{id:'mappings',label:'Mappings'},{id:'activity',label:'Activity'}
   ];
 
   return (
@@ -281,6 +282,7 @@ export function IntegrationConsole() {
           </div>}
       </section>}
 
+      {view==='mappings'&&<MappingEditor token={token}/>}
       {view==='activity'&&<div className="grid gap-4 lg:grid-cols-2">
         <section className={card}>
           <div className="border-b border-slate-100 p-5"><h2 className="font-semibold">Recent activity</h2></div>
