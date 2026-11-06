@@ -47,7 +47,11 @@ export function register(s: State, p: Profile, body: any, now: string) {
     // Re-registration refreshes metadata without re-enabling a disabled link.
     state: state === 'registered' && existing ? existing.state : state, provider:p.provider, updatedAt:now};
   if (existing) Object.assign(existing, mapping); else s.mappings.push(mapping);
-  if (mapping.state !== 'active') for (const a of s.alerts.filter(a => a.mappingId === mapping.id)) {a.status='suppressed'; a.reason='Registration not active';}
+  if (mapping.state !== 'active') for (const a of s.alerts.filter(a => a.mappingId === mapping.id)) {
+    // A store-level KDS alert remains valid while another screen connection is active.
+    if (a.provider === 'screen' && s.mappings.some(m => m.locationId === location && m.state === 'active' && m.provider === 'screen')) continue;
+    a.status='suppressed'; a.reason='Registration not active';
+  }
   s.events.push({id:hash(`${p.id}:${link}:${now}`), kind:'registration', at:now, profileId:p.id, locationId:location, result:mapping.state});
   trimState(s);
   return mapping;
@@ -62,13 +66,27 @@ function phaseFor(p: Profile, body: any, kind: string): {phase:OrderPhase; raw:s
   return {phase:Object.hasOwn(statuses,raw) ? statuses[raw] : 'unknown',raw};
 }
 function addAlert(s: State, locationId: string, orderId: string, message: string, now: string, suffix: string) {
-  for (const m of s.mappings.filter(m => m.locationId === locationId && m.state === 'active')) {
+  const active = s.mappings.filter(m => m.locationId === locationId && m.state === 'active');
+  // One screen/KDS notification per physical store and event, regardless of how
+  // many Deliverect channel links are registered for that store.
+  const screen = active.find(m => m.provider === 'screen');
+  if (screen) {
+    const id = hash(`screen:${locationId}:${orderId}:${suffix}`);
+    if (!s.alerts.some(a => a.id === id)) s.alerts.push({
+      id, locationId, orderId, message, createdAt:now,
+      expiresAt:new Date(Date.parse(now)+120_000).toISOString(),
+      mappingId:screen.id, provider:'screen', status:'screen_available'
+    });
+  }
+  // Preserve a separate, explicitly blocked delivery record for each unconfigured
+  // external destination. This does not perform any network delivery.
+  for (const m of active.filter(m => m.provider !== 'screen')) {
     const id = hash(`${m.id}:${orderId}:${suffix}`);
-    if (s.alerts.some(a=>a.id===id)) continue;
-    const a: Alert = {id, locationId,orderId,message,createdAt:now,expiresAt:new Date(Date.parse(now)+120_000).toISOString(),mappingId:m.id,provider:m.provider,
-      status:m.provider === 'screen' ? 'screen_available' : 'blocked'};
-    if (m.provider !== 'screen') a.reason='VoCoVo API contract and credentials required; no delivery attempted';
-    s.alerts.push(a);
+    if (s.alerts.some(a => a.id === id)) continue;
+    s.alerts.push({id, locationId, orderId, message, createdAt:now,
+      expiresAt:new Date(Date.parse(now)+120_000).toISOString(),
+      mappingId:m.id, provider:m.provider, status:'blocked',
+      reason:'Provider API contract and credentials required; no delivery attempted'});
   }
 }
 export function ingest(s: State, p: Profile, kind: string, body: any, now: string) {
