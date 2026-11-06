@@ -34,6 +34,7 @@ const alertName:Record<string,string> = {
 
 export function IntegrationConsole() {
   const [token,setToken] = useState('');
+  const demo=token==='__demo_preview__';
   const [input,setInput] = useState('');
   const [data,setData] = useState<ConsoleData|null>(null);
   const [view,setView] = useState<View>('orders');
@@ -50,7 +51,7 @@ export function IntegrationConsole() {
   activeToken.current = token;
 
   const refresh = useCallback(async (auth:string, quiet=false) => {
-    if (!auth) return;
+    if (!auth || auth==='__demo_preview__') return;
     const id = ++requestId.current;
     if (!quiet) setLoading(true);
     try {
@@ -76,14 +77,15 @@ export function IntegrationConsole() {
   },[]);
 
   useEffect(()=>{
-    if (!token) return;
+    if (!token || demo) return;
     void refresh(token);
     if (!autoRefresh) return;
     const interval=setInterval(()=>{if (!document.hidden) void refresh(token,true);},15000);
     return ()=>clearInterval(interval);
-  },[token,autoRefresh,refresh]);
+  },[token,autoRefresh,refresh,demo]);
 
   async function syncChannels(profile:Profile) {
+    if(demo)return;
     setBusy(profile.id);
     setMessage('');
     setError('');
@@ -126,6 +128,7 @@ export function IntegrationConsole() {
             className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"/>
           <button type="submit" className="w-full rounded-lg bg-[#063d30] px-4 py-3 text-sm font-semibold text-white hover:bg-[#0b5340]">Continue</button>
         </form>
+        <div className="mt-5 border-t border-slate-200 pt-5"><button type="button" onClick={()=>{setToken('__demo_preview__');setError('');setData({storage:'Sample data — no backend connection',profiles:[],state:{mappings:[{id:'demo-m1',profileId:'demo',locationId:'store-1',externalLocationId:'store-1',channelLinkId:'demo-1',name:'High Street',state:'active',provider:'screen',updatedAt:new Date().toISOString()},{id:'demo-m2',profileId:'demo',locationId:'store-2',externalLocationId:'store-2',channelLinkId:'demo-2',name:'Station Road',state:'active',provider:'screen',updatedAt:new Date().toISOString()}],orders:[{id:'demo-o1',locationId:'store-1',channelId:'1',sourceChannelLinkId:'demo-1',displayId:'10042',phase:'waiting',sourceStatus:'1',updatedAt:new Date().toISOString(),receivedAt:new Date().toISOString(),reminders:0},{id:'demo-o2',locationId:'store-2',channelId:'2',sourceChannelLinkId:'demo-2',displayId:'10043',phase:'picking',sourceStatus:'PICKING_STARTED',updatedAt:new Date().toISOString(),receivedAt:new Date().toISOString(),reminders:0}],alerts:[],events:[],channels:[{channelId:'1',name:'Demo channel'}]}});}} className="w-full rounded-lg border border-emerald-700 px-4 py-3 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">Preview dashboard without a token</button><p className="mt-2 text-xs text-slate-500">Sample data only. Real stores and integrations remain private.</p></div>
       </div>
     </div>
   );
@@ -148,17 +151,18 @@ export function IntegrationConsole() {
 
   return (
     <div className="space-y-6">
+      {demo&&<div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><span><strong>Demo preview</strong> · Sample stores and orders. No Deliverect connection or live alerts.</span><button className="font-semibold underline" onClick={signOut}>Exit preview</button></div>}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">Your stores and order alerts in one place.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button aria-label="Refresh" title="Refresh" onClick={()=>void refresh(token)}
+          <button disabled={demo} aria-label="Refresh" title="Refresh" onClick={()=>void refresh(token)}
             className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
             <RefreshCw size={17} className={loading?'animate-spin':''}/>
           </button>
-          <button onClick={()=>setSettingsOpen(v=>!v)} aria-label="Settings" title="Settings"
+          <button disabled={demo} onClick={()=>setSettingsOpen(v=>!v)} aria-label="Settings" title="Settings"
             className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50">
             <Settings2 size={17}/>
           </button>
@@ -216,7 +220,7 @@ export function IntegrationConsole() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          {label:'Connected stores',value:mappings.filter(m=>m.state==='active').length},
+          {label:'Connected stores',value:new Set(mappings.filter(m=>m.state==='active').map(m=>m.locationId)).size},
           {label:'Waiting orders',value:waiting},
           {label:'Active alerts',value:activeAlerts},
           {label:'Channels',value:channels.length}
@@ -301,7 +305,7 @@ export function IntegrationConsole() {
       </div>}
 
       {loading&&!data&&<p className="text-center text-sm text-slate-500">Connecting…</p>}
-      <p className="text-xs text-slate-400">VoCoVo headset delivery is not yet connected. Order information is read-only.</p>
+      {!demo&&<p className="text-xs text-slate-400">VoCoVo headset delivery is not yet connected. Order information is read-only.</p>}
     </div>
   );
 }
