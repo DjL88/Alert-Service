@@ -34,7 +34,13 @@ const profiles = loadProfiles();
 if (isProd && profiles.length === 0) {
   console.warn('No integrations configured. The UI will load; configure INTEGRATIONS_JSON before connecting Deliverect.');
 }
-const repo = await repository();
+let repo;
+try {
+  repo = await repository();
+} catch (error) {
+  console.error('Store Alerts could not start: storage configuration is missing or invalid.',error);
+  throw error;
+}
 const schedulerToken = process.env.SCHEDULER_TOKEN || '';
 const app = createApp(repo, profiles, origin, schedulerToken);
 

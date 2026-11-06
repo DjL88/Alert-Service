@@ -2,5 +2,5 @@
   "name": "Store Alerts",
   "description": "Connect stores and manage order alerts.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

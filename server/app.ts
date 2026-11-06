@@ -1,4 +1,5 @@
 import express from 'express';
+import {randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
 import type {Profile} from './model.ts';
 import type {Repository} from './storage.ts';
@@ -8,6 +9,10 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   app.disable('x-powered-by');
   app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');next();});
   app.get('/healthz',(_req,res)=>res.json({status:'ok'}));
+  app.get('/readyz',wrapReady);
+  function wrapReady(_req:any,res:any) {
+    res.json({status:'ready', configured:profiles.length>0});
+  }
   const base=(p:Profile)=>`${origin}/webhooks/deliverect/${p.id}`;
   const wrap=(fn:any)=>(req:any,res:any,next:any)=>Promise.resolve(fn(req,res)).catch(next);
   app.post('/webhooks/deliverect/:profile/:kind',express.raw({type:'application/json',limit:'512kb'}),wrap(async(req:any,res:any)=>{
@@ -72,7 +77,7 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
     res.json({ ok: true });
   }));
   app.get('/api/console',wrap(async(req:any,res:any)=>{
-    const state=await repo.transact(req.tenantId,s=>s);
+    const state=repo.read ? await repo.read(req.tenantId) : await repo.transact(req.tenantId,s=>s);
     res.json({state,storage:process.env.STORAGE_DRIVER==='firestore'?'firestore':'local development',
       profiles:profiles.filter(p=>p.tenantId===req.tenantId).map(p=>({id:p.id,provider:p.provider,accountId:p.accountId,environment:p.environment,
         credentialsConfigured:!!(p.clientId&&p.clientSecret),
@@ -101,8 +106,13 @@ export function createApp(repo: Repository, profiles: Profile[], origin: string,
   app.get('*',(_req,res)=>res.sendFile(resolve('dist/index.html')));
   app.use((err:any,_req:any,res:any,_next:any)=>{
     const status=err instanceof InputError?err.status:err.type==='entity.too.large'?413:500;
-    // Do not echo payloads, credentials or upstream response bodies.
-    res.status(status).json({error:status===500?'Service unavailable; retry later':err.message});
+    if (status===500) {
+      const incidentId=randomUUID().slice(0,8);
+      console.error('[request-error]',incidentId,err instanceof Error?err.stack:err);
+      res.status(500).json({error:'Something went wrong. Please try again.',reference:incidentId});
+      return;
+    }
+    res.status(status).json({error:err.message});
   });
   return app;
 }
